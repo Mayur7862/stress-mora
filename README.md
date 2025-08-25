@@ -26,7 +26,7 @@ Ask natural language questions → AI converts them into safe SQL → runs on Po
 
 ### 1. Clone repo & install deps
 ```bash
-git clone https://github.com/your-repo-link.git
+git clone https://github.com/Mayur7862/stress-mora
 cd stressmora
 npm install
 ```
