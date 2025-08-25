@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AI → DB Chat</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 780px; margin: 24px auto; padding: 0 12px; }
+    textarea { width: 100%; height: 80px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    th, td { border: 1px solid #ddd; padding: 6px; font-size: 14px; }
+    pre { background:#f6f8fa; padding:10px; overflow:auto; }
+    button { padding: 8px 12px; margin-top: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Ask your database</h1>
+  <textarea id="q" placeholder="e.g., How many paid orders in last 30 days?"></textarea>
+  <button id="ask">Ask</button>
+  <div id="out"></div>
+
+  <script>
+    const askBtn = document.getElementById('ask');
+    const qEl = document.getElementById('q');
+    const out = document.getElementById('out');
+
+    askBtn.onclick = async () => {
+      const question = qEl.value.trim();
+      if (!question) return;
+      out.innerHTML = 'Thinking...';
+
+      const r = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+      const data = await r.json();
+
+      if (!r.ok || !data.ok) {
+        const msg = data?.hint
+          ? `${data.error || 'error'}: ${data.hint}`
+          : (data?.detail || JSON.stringify(data, null, 2));
+        out.innerHTML = `
+          <p><strong>LLM temporarily busy or rate-limited.</strong></p>
+          <pre>${msg}</pre>
+          <p>Tip: click Ask again in a few seconds — retries + fallback are enabled.</p>
+        `;
+        return;
+      }
+
+      const { sql, explanation, columns, rows, rowCount, latencyMs, usedModel } = data;
+
+      const head = `<tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
+      const body = rows.map(row =>
+        `<tr>${columns.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`
+      ).join('');
+
+      out.innerHTML = `
+        <p><strong>Model:</strong> ${usedModel || 'unknown'}</p>
+        <p><strong>SQL:</strong></p>
+        <pre>${sql}</pre>
+        <p>${explanation || ''}</p>
+        <p><em>${rowCount} rows • ${latencyMs} ms</em></p>
+        <table>${head}${body}</table>
+      `;
+    };
+  </script>
+</body>
+</html>
